@@ -1,6 +1,7 @@
 es:
   host: localhost
   port: 9200
+  index: test
 mongo:
   host: localhost
   port: 27017

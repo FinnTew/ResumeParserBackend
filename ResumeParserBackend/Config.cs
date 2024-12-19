@@ -9,6 +9,7 @@ public class ES
 {
     public string Host { get; set; }
     public int Port { get; set; }
+    public string Index { get; set; }
 }
 
 public class Mongo 
