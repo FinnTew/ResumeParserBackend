@@ -1,0 +1,13 @@
+es:
+  host: localhost
+  port: 9200
+mongo:
+  host: localhost
+  port: 27017
+  database: resume
+kafka:
+  host: localhost
+  port: 9092
+  topics:
+    - parser
+    
