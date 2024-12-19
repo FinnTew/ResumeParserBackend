@@ -6,17 +6,30 @@ using System.Collections.Generic;
 using System.Linq.Expressions;
 using System.Threading.Tasks;
 
-public class MongoDbHelper<T> where T : class
+public sealed class MongoDbSingleton
 {
-    private readonly IMongoCollection<T> _collection;
+    private static readonly Lazy<MongoDbSingleton> _instance = new(() => new MongoDbSingleton());
     
-    public MongoDbHelper(string collectionName)
+    private readonly MongoClient _client;
+    private readonly IMongoDatabase _database;
+    
+    private MongoDbSingleton()
     {
         var connString = $"mongodb://{ConfigManager.Instance.Get(c => c.Mongo.Host)}:{ConfigManager.Instance.Get(c => c.Mongo.Port)}";
-        var client = new MongoClient(connString);
-        var database = client.GetDatabase(ConfigManager.Instance.Get(c => c.Mongo.Database));
-        _collection = database.GetCollection<T>(collectionName);
+        _client = new MongoClient(connString);
+        _database = _client.GetDatabase(ConfigManager.Instance.Get(c => c.Mongo.Database));
     }
+    
+    public static MongoDbSingleton Instance => _instance.Value;
+    
+    public MongoClient Client => _client;
+    public IMongoDatabase Database => _database;
+}
+
+public class MongoDbHelper<T>(string collectionName)
+    where T : class
+{
+    private readonly IMongoCollection<T> _collection = MongoDbSingleton.Instance.Database.GetCollection<T>(collectionName);
 
     public async Task InsertOneAsync(T document)
     {
