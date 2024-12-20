@@ -63,15 +63,19 @@ public class FileReader
         return text.ToString();
     }
 
-    private string ReadDocFile(string filePath)
+    private static string ReadDocFile(string filePath)
     {
         var text = new StringBuilder();
 
         using (var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read))
         {
-            HWPFDocument doc = new HWPFDocument(fs);
-            WordExtractor extractor = new WordExtractor(doc);
-            text.Append(extractor.GetTextFromParagraphs());
+            var doc = new HWPFDocument(fs);
+            var extractor = new WordExtractor(doc);
+
+            foreach (var t in extractor.ParagraphText)
+            {
+                text.Append(t);
+            }
         }
 
         return text.ToString();
