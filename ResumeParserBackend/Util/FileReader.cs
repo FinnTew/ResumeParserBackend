@@ -11,7 +11,7 @@ using NPOI.HWPF.Extractor;
 
 public class FileReader
 {
-    public string ReadFile(string filePath)
+    public static string ReadFile(string filePath)
     {
         var extension = Path.GetExtension(filePath).ToLower();
 

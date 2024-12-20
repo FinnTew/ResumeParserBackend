@@ -9,6 +9,5 @@ mongo:
 kafka:
   host: localhost
   port: 9092
-  topics:
-    - parser
+  group: resume
     

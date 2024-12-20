@@ -1,3 +1,8 @@
+using ResumeParserBackend.Util;
+using NodaTime;
+using ResumeParserBackend.Collection;
+using ResumeParserBackend.Helper;
+
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddOpenApi();
@@ -44,9 +49,42 @@ app.MapPost("/upload", async (HttpContext ctx) =>
             {
                 await formFile.CopyToAsync(stream);
             }
-        
-            // TODO
-        
+            
+            var fileContent = FileReader.ReadFile(filePath);
+
+            var resumeId = Guid.NewGuid().ToString();
+
+            try
+            {
+                await new MongoDbHelper<Resume>("Resume").InsertOneAsync(new Resume
+                {
+                    ResumeId = resumeId,
+                    FilePath = filePath,
+                    OriginalFileName = formFile.FileName,
+                    UploadedFileName = newFileName,
+                    FileFormat = fileExtension.Split(".")[1].ToLower(),
+                    UploadTime = DateTime.Now,
+                    ParseStatus = "pending"
+                });
+            }
+            catch (Exception e)
+            {
+                return Results.Json(new { success = false, message = e.Message }, statusCode: StatusCodes.Status500InternalServerError);
+            }
+
+            try
+            {
+                await new MongoDbHelper<ResumeContent>("ResumeContent").InsertOneAsync(new ResumeContent
+                {
+                    ResumeId = resumeId,
+                    FileContent = fileContent
+                });
+            }
+            catch (Exception e)
+            {
+                return Results.Json(new { success = false, message = e.Message }, statusCode: StatusCodes.Status500InternalServerError);
+            }
+ 
             uploadedFiles.Add(newFileName);
         }
     
@@ -57,5 +95,6 @@ app.MapPost("/upload", async (HttpContext ctx) =>
     .Produces(StatusCodes.Status400BadRequest)
     .WithName("UploadFile")
     .WithOpenApi();
+
 
 app.Run();

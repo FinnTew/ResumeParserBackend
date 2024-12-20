@@ -23,7 +23,7 @@ public class Kafka
 {
     public string Host { get; set; }
     public int Port { get; set; }
-    public List<string> Topics { get; set; }
+    public string Group { get; set; }
 }
 
 public class Config {

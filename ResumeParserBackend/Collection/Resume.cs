@@ -12,6 +12,8 @@ public class Resume
     
     public string ResumeId { get; set; }
     
+    public string FilePath { get; set; }
+    
     public string OriginalFileName { get; set; }
     
     public string UploadedFileName { get; set; }
