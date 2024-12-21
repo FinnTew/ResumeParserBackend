@@ -137,8 +137,7 @@ app.MapPost("/match", async (HttpContext ctx) =>
             {
                 return shouldQuery.Bool(b =>
                 {
-                    // 添加可选匹配的关键词
-                    foreach (var keyword in reqData.Should)
+                    reqData.Should.ForEach(keyword =>
                     {
                         b.Should(m =>
                         {
@@ -147,8 +146,7 @@ app.MapPost("/match", async (HttpContext ctx) =>
                                 return t.Field(f => f.Content).Query(keyword);
                             });
                         });
-                    }
-
+                    });
                     return b;
                 });
             }
@@ -165,5 +163,7 @@ app.MapPost("/match", async (HttpContext ctx) =>
     .Accepts<MatchReq>("application/json")
     .WithName("Match")
     .WithOpenApi();
+
+
 
 app.Run();
