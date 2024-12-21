@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Routing.Constraints;
 using Microsoft.Extensions.Logging.EventSource;
 using MongoDB.Bson;
 using ResumeParserBackend.Util;
@@ -100,6 +101,64 @@ app.MapPost("/upload", async (HttpContext ctx) =>
     .Produces(StatusCodes.Status200OK)
     .Produces(StatusCodes.Status400BadRequest)
     .WithName("UploadFile")
+    .WithOpenApi();
+
+// 按照文件名查找
+app.MapGet("/find/{fileName}", async (string fileName, HttpContext ctx) =>
+    {
+        var mongo = new MongoDbHelper<Resume>("Resume");
+
+        var resumeList = await mongo.FindManyAsync(f => f.OriginalFileName.Contains(fileName));
+
+        return Results.Json(new { success = true, resumeList }, statusCode: StatusCodes.Status200OK);
+    })
+    .WithName("Find")
+    .WithOpenApi();
+
+// 按照日期查找
+app.MapPost("/find", async (HttpContext ctx) =>
+    {
+        var reqData = await ctx.Request.ReadFromJsonAsync<FindByDataReq>();
+
+        if (reqData == null)
+        {
+            return Results.Json(new { success = false, message = "Invalid request data." }, statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        if (reqData.StartDate > reqData.EndDate)
+        {
+            return Results.Json(new { success = false, message = "Start date cannot be later than end date." }, statusCode: StatusCodes.Status400BadRequest);
+        }
+        
+        var mongo = new MongoDbHelper<Resume>("Resume");
+        
+        var resumeList = await mongo.FindManyAsync(f => f.UploadTime >= reqData.StartDate && f.UploadTime <= reqData.EndDate);
+        
+        return Results.Json(new { success = true, resumeList }, statusCode: StatusCodes.Status200OK);
+    })
+    .WithName("Find")
+    .WithOpenApi();
+
+// 下载简历
+app.MapGet("/download/{resumeId}", async (string resumeId, HttpContext ctx) =>
+    {
+        var mongo = new MongoDbHelper<Resume>("Resume");
+        
+        var resume = await mongo.FindOneAsync(f => f.ResumeId == resumeId);
+
+        var resumeFilePath = resume.FilePath;
+
+        if (!File.Exists(resumeFilePath))
+        {
+            return Results.NotFound();
+        }
+        
+        var fileBytes = await File.ReadAllBytesAsync(resumeFilePath);
+        const string contentType = "application/octet-stream";
+        
+        return Results.File(fileContents: fileBytes, contentType: contentType, fileDownloadName: resume.OriginalFileName);
+    })
+    .WithName("Download")
     .WithOpenApi();
 
 // 关键词匹配
