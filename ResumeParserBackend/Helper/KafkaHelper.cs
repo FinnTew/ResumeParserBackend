@@ -1,27 +1,28 @@
 namespace ResumeParserBackend.Helper;
 
 using Confluent.Kafka;
-using System;
-using System.Collections.Generic;
-using System.Threading;
-using System.Threading.Tasks;
+using System.Text.Json;
 
 public sealed class KafkaSingleton
 {
     private static readonly Lazy<KafkaSingleton> _instance = new(() => new KafkaSingleton());
 
+    private readonly ProducerConfig _producerConfig;
+    private readonly ConsumerConfig _consumerConfig;
+
     private KafkaSingleton()
     {
         var bootstrapServers = $"{ConfigManager.Instance.Get(c => c.Kafka.Host)}:{ConfigManager.Instance.Get(c => c.Kafka.Port)}";
+            
         // 配置生产者
-        ProducerConfig = new ProducerConfig
+        _producerConfig = new ProducerConfig
         {
             BootstrapServers = bootstrapServers,
             Acks = Acks.All // 确保可靠性
         };
 
         // 配置消费者
-        ConsumerConfig = new ConsumerConfig
+        _consumerConfig = new ConsumerConfig
         {
             BootstrapServers = bootstrapServers,
             GroupId = ConfigManager.Instance.Get(c => c.Kafka.Group),
@@ -29,30 +30,32 @@ public sealed class KafkaSingleton
             EnableAutoCommit = true // 自动提交偏移量
         };
     }
-        
+
     public static KafkaSingleton Instance => _instance.Value;
 
-    public ProducerConfig ProducerConfig { get; }
-
-    public ConsumerConfig ConsumerConfig { get; }
+    public ProducerConfig ProducerConfig => _producerConfig;
+    public ConsumerConfig ConsumerConfig => _consumerConfig;
 }
 
-public class KafkaHelper<TKey, TValue>
+public class KafkaHelper
 {
-    private readonly ProducerConfig _producerConfig = KafkaSingleton.Instance.ProducerConfig;
-    private readonly ConsumerConfig _consumerConfig = KafkaSingleton.Instance.ConsumerConfig;
+    private readonly ProducerConfig _producerConfig;
+    private readonly ConsumerConfig _consumerConfig;
 
-    // 生产消息
-    public async Task ProduceAsync(string topic, TKey key, TValue value)
+    public KafkaHelper()
     {
-        using var producer = new ProducerBuilder<TKey, TValue>(_producerConfig)
-            .SetKeySerializer(new Confluent.Kafka.Serializers.StringSerializer())
-            .SetValueSerializer(new Confluent.Kafka.Serializers.StringSerializer())
-            .Build();
+        _producerConfig = KafkaSingleton.Instance.ProducerConfig;
+        _consumerConfig = KafkaSingleton.Instance.ConsumerConfig;
+    }
+
+    // 生产单条消息
+    public async Task ProduceAsync(string topic, string key, string value)
+    {
+        using var producer = new ProducerBuilder<string, string>(_producerConfig).Build();
 
         try
         {
-            var result = await producer.ProduceAsync(topic, new Message<TKey, TValue>
+            var result = await producer.ProduceAsync(topic, new Message<string, string>
             {
                 Key = key,
                 Value = value
@@ -60,20 +63,17 @@ public class KafkaHelper<TKey, TValue>
 
             Console.WriteLine($"Message sent to {result.TopicPartitionOffset}");
         }
-        catch (ProduceException<TKey, TValue> e)
+        catch (ProduceException<string, string> e)
         {
             Console.WriteLine($"Failed to deliver message: {e.Error.Reason}");
             throw;
         }
     }
 
-    // 消费消息（带回调）
-    public void Consume(string topic, Action<ConsumeResult<TKey, TValue>> messageHandler, CancellationToken cancellationToken)
+    // 消费消息（带回调处理）
+    public void Consume(string topic, Action<string, string> messageHandler, CancellationToken cancellationToken)
     {
-        using var consumer = new ConsumerBuilder<TKey, TValue>(_consumerConfig)
-            .SetKeyDeserializer(new Confluent.Kafka.Serializers.StringDeserializer())
-            .SetValueDeserializer(new Confluent.Kafka.Serializers.StringDeserializer())
-            .Build();
+        using var consumer = new ConsumerBuilder<string, string>(_consumerConfig).Build();
 
         consumer.Subscribe(topic);
 
@@ -84,11 +84,13 @@ public class KafkaHelper<TKey, TValue>
                 try
                 {
                     var consumeResult = consumer.Consume(cancellationToken);
-                    messageHandler(consumeResult); // 处理消息
+
+                    // 通过回调处理消息
+                    messageHandler(consumeResult.Message.Key, consumeResult.Message.Value);
                 }
                 catch (ConsumeException e)
                 {
-                    Console.WriteLine($"Error occured: {e.Error.Reason}");
+                    Console.WriteLine($"Error occurred: {e.Error.Reason}");
                 }
             }
         }
@@ -99,17 +101,14 @@ public class KafkaHelper<TKey, TValue>
     }
 
     // 批量生产消息
-    public async Task ProduceManyAsync(string topic, IEnumerable<KeyValuePair<TKey, TValue>> messages)
+    public async Task ProduceManyAsync(string topic, IEnumerable<KeyValuePair<string, string>> messages)
     {
-        using var producer = new ProducerBuilder<TKey, TValue>(_producerConfig)
-            .SetKeySerializer(new Confluent.Kafka.Serializers.StringSerializer())
-            .SetValueSerializer(new Confluent.Kafka.Serializers.StringSerializer())
-            .Build();
+        using var producer = new ProducerBuilder<string, string>(_producerConfig).Build();
 
         var tasks = new List<Task>();
         foreach (var message in messages)
         {
-            tasks.Add(producer.ProduceAsync(topic, new Message<TKey, TValue>
+            tasks.Add(producer.ProduceAsync(topic, new Message<string, string>
             {
                 Key = message.Key,
                 Value = message.Value
@@ -117,5 +116,46 @@ public class KafkaHelper<TKey, TValue>
         }
 
         await Task.WhenAll(tasks);
+    }
+
+    // 消费消息并反序列化为指定类型
+    public void ConsumeAndDeserialize<TDeserialized>(
+        string topic,
+        Action<string, TDeserialized> messageHandler,
+        CancellationToken cancellationToken)
+    {
+        using var consumer = new ConsumerBuilder<string, string>(_consumerConfig).Build();
+
+        consumer.Subscribe(topic);
+
+        try
+        {
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                try
+                {
+                    var consumeResult = consumer.Consume(cancellationToken);
+
+                    // 假设消息值是 JSON 格式，进行反序列化
+                    var deserializedValue = JsonSerializer.Deserialize<TDeserialized>(consumeResult.Message.Value);
+                    if (deserializedValue != null)
+                    {
+                        messageHandler(consumeResult.Message.Key, deserializedValue);
+                    }
+                }
+                catch (ConsumeException e)
+                {
+                    Console.WriteLine($"Error occurred: {e.Error.Reason}");
+                }
+                catch (JsonException e)
+                {
+                    Console.WriteLine($"JSON Deserialization error: {e.Message}");
+                }
+            }
+        }
+        finally
+        {
+            consumer.Close();
+        }
     }
 }
