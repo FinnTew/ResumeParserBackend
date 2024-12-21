@@ -1,6 +1,11 @@
+using Microsoft.Extensions.Logging.EventSource;
+using MongoDB.Bson;
 using ResumeParserBackend.Util;
 using NodaTime;
+using ResumeParserBackend;
 using ResumeParserBackend.Collection;
+using ResumeParserBackend.Document;
+using ResumeParserBackend.Entity;
 using ResumeParserBackend.Helper;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -16,11 +21,12 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-// endpoints
+// test
 app.MapGet("/ping", () => "pong")
     .WithName("Ping")
     .WithOpenApi();
 
+// 简历上传 & 读取
 app.MapPost("/upload", async (HttpContext ctx) =>
     {
         var formFiles = ctx.Request.Form.Files;
@@ -96,5 +102,68 @@ app.MapPost("/upload", async (HttpContext ctx) =>
     .WithName("UploadFile")
     .WithOpenApi();
 
+// 关键词匹配
+app.MapPost("/match", async (HttpContext ctx) =>
+    {
+        var reqData = await ctx.Request.ReadFromJsonAsync<MatchReq>();
+
+        if (reqData == null)
+        {
+            return Results.Json(new { success = false, message = "Invalid request data." }, statusCode: StatusCodes.Status400BadRequest);
+        }
+        
+        var es = new ElasticSearchHelper();
+
+        var matchRes = await es.BoolSearchAsync<ResumeDoc>(
+            ConfigManager.Instance.Get(c => c.Es.Index),
+            mustQuery =>
+            {
+                return mustQuery.Bool(b =>
+                {
+                    reqData.Must.ForEach(keyword =>
+                    {
+                        b.Must(m =>
+                        {
+                            return m.Term(t =>
+                            {
+                                return t.Field(f => f.Content).Value(keyword);
+                            });
+                        });
+                    });
+                    return b;
+                });
+            },
+            shouldQuery =>
+            {
+                return shouldQuery.Bool(b =>
+                {
+                    // 添加可选匹配的关键词
+                    foreach (var keyword in reqData.Should)
+                    {
+                        b.Should(m =>
+                        {
+                            return m.Match(t =>
+                            {
+                                return t.Field(f => f.Content).Query(keyword);
+                            });
+                        });
+                    }
+
+                    return b;
+                });
+            }
+        );
+
+        var matchResList = new List<string>();
+        matchRes.Documents.ToList().ForEach(item =>
+        {
+            matchResList.Add(item.ResumeId);
+        });
+        
+        return Results.Json(new {success = true, matchResList}, statusCode: StatusCodes.Status200OK);
+    })
+    .Accepts<MatchReq>("application/json")
+    .WithName("Match")
+    .WithOpenApi();
 
 app.Run();

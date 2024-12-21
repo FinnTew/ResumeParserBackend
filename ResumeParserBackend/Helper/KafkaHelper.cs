@@ -39,14 +39,8 @@ public sealed class KafkaSingleton
 
 public class KafkaHelper
 {
-    private readonly ProducerConfig _producerConfig;
-    private readonly ConsumerConfig _consumerConfig;
-
-    public KafkaHelper()
-    {
-        _producerConfig = KafkaSingleton.Instance.ProducerConfig;
-        _consumerConfig = KafkaSingleton.Instance.ConsumerConfig;
-    }
+    private readonly ProducerConfig _producerConfig = KafkaSingleton.Instance.ProducerConfig;
+    private readonly ConsumerConfig _consumerConfig = KafkaSingleton.Instance.ConsumerConfig;
 
     // 生产单条消息
     public async Task ProduceAsync(string topic, string key, string value)

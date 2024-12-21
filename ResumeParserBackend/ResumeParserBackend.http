@@ -4,3 +4,11 @@ GET {{ResumeParserBackend_HostAddress}}/weatherforecast/
 Accept: application/json
 
 ###
+
+POST {{ResumeParserBackend_HostAddress}}/match/
+Content-Type: application/json
+
+{
+    "must": ["a", "b"],
+    "should": ["c"]
+}
