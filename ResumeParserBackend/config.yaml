@@ -1,7 +1,8 @@
 es:
   host: localhost
   port: 9200
-  index: test
+  index: resume
+  retry: 3
 mongo:
   host: localhost
   port: 27017
