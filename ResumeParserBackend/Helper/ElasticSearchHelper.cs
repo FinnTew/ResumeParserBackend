@@ -55,6 +55,26 @@ public class ElasticSearchHelper
             throw new Exception($"Failed to create index [{indexName}]: {bulkResponse.DebugInformation}");
         }
     }
+
+    public async Task InsertDataAsync<T>(string indexName, T data) where T : class
+    {
+        var existsResponse = await _client.Indices.ExistsAsync(indexName);
+        if (!existsResponse.Exists)
+        {
+            var createResponse = await _client.Indices.CreateAsync(indexName, c => c
+                .Map<T>(m => m.AutoMap()));
+            if (!createResponse.IsValid)
+            {
+                throw new Exception($"Failed to create index [{indexName}]: {createResponse.DebugInformation}");
+            }
+        }
+
+        var indexResponse = await _client.IndexAsync(data, i => i.Index(indexName));
+        if (!indexResponse.IsValid)
+        {
+            throw new Exception($"Failed to index document: {indexResponse.DebugInformation}");
+        }
+    }
     
     public async Task<bool> ClearAllDataAsync(string indexName)
     {

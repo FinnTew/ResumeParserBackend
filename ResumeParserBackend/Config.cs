@@ -21,17 +21,16 @@ public class Mongo
     public string Database { get; set; }
 }
 
-public class Kafka
+public class Rpc
 {
     public string Host { get; set; }
     public int Port { get; set; }
-    public string Group { get; set; }
 }
 
 public class Config {
     public ES Es { get; set; } = new();
     public Mongo Mongo { get; set; } = new();
-    public Kafka Kafka { get; set; } = new();
+    public Rpc Rpc { get; set; } = new();
 }
 
 public class ConfigManager

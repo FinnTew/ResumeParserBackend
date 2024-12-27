@@ -1,3 +1,4 @@
+using System.Text.Json;
 using FluentScheduler;
 using MongoDB.Bson;
 using ResumeParserBackend.Util;
@@ -7,10 +8,17 @@ using ResumeParserBackend.Document;
 using ResumeParserBackend.Entity;
 using ResumeParserBackend.Helper;
 
-// ElasticSearch 定时刷新任务
-JobManager.Initialize(new ElasticSearchTimer());
-
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAll", builder =>
+    {
+        builder.AllowAnyOrigin()
+            .AllowAnyMethod()
+            .AllowAnyHeader();
+    });
+});
 
 builder.Services.AddOpenApi();
 
@@ -21,7 +29,8 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
-app.UseHttpsRedirection();
+// app.UseHttpsRedirection();
+app.UseCors("AllowAll");
 
 // test
 app.MapGet("/ping", () => "pong")
@@ -39,7 +48,7 @@ app.MapPost("/upload", async (HttpContext ctx) =>
         }
 
         string[] supportedFileFormats = [".doc", ".docx", ".pdf", ".txt"];
-        var uploadedFiles = new List<string>();
+        var uploadedFiles = new List<UploadResp>();
     
         foreach (var formFile in formFiles)
         {
@@ -52,7 +61,14 @@ app.MapPost("/upload", async (HttpContext ctx) =>
             var timestamp = DateTime.Now.ToString("yyyyMMddHHmmssfff");
             var newFileName = $"{Path.GetFileNameWithoutExtension(formFile.FileName)}-{timestamp}{fileExtension}";
 
-            var filePath = Path.Combine(Directory.GetCurrentDirectory(), "Uploads", newFileName);
+            var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "Uploads");
+
+            if (!Directory.Exists(uploadsFolder))
+            {
+                Directory.CreateDirectory(uploadsFolder);
+            }
+
+            var filePath = Path.Combine(uploadsFolder, newFileName);
             await using (var stream = new FileStream(filePath, FileMode.Create))
             {
                 await formFile.CopyToAsync(stream);
@@ -92,11 +108,29 @@ app.MapPost("/upload", async (HttpContext ctx) =>
             {
                 return Results.Json(new { success = false, message = e.Message }, statusCode: StatusCodes.Status500InternalServerError);
             }
+
+            try
+            {
+                await new ElasticSearchHelper().InsertDataAsync(ConfigManager.Instance.Get(c => c.Es.Index),
+                    new ResumeDoc
+                    {
+                        ResumeId = resumeId,
+                        Content = fileContent
+                    });
+            }
+            catch (Exception e)
+            {
+                return Results.Json(new { success = false, message = e.Message }, statusCode: StatusCodes.Status500InternalServerError);
+            }
  
-            uploadedFiles.Add(newFileName);
+            uploadedFiles.Add(new UploadResp
+            {
+                Id = resumeId,
+                Filename = formFile.FileName
+            });
         }
     
-        return Results.Json(new { success = true, uploadedFiles }, statusCode: StatusCodes.Status200OK);
+        return Results.Json(new { success = true, data = uploadedFiles }, statusCode: StatusCodes.Status200OK);
     })
     .Accepts<IFormFile>("multipart/form-data")
     .Produces(StatusCodes.Status200OK)
@@ -135,7 +169,9 @@ app.MapGet("filecontent/{resumeId}", async (string resumeId, HttpContext ctx) =>
         
         var resumeContent = await mongo.FindOneAsync(f => f.ResumeId == resumeId);
         
-        return Results.Json(new {success = true, fileContent = resumeContent.FileContent}, statusCode: StatusCodes.Status200OK);
+        var filename = (await new MongoDbHelper<Resume>("Resume").FindOneAsync(f => f.ResumeId == resumeId)).OriginalFileName;
+        
+        return Results.Json(new {success = true, data = new { filename, content = resumeContent}}, statusCode: StatusCodes.Status200OK);
     })
     .WithName("GetFileContent")
     .WithOpenApi();
@@ -302,7 +338,7 @@ app.MapPost("/match", async (HttpContext ctx) =>
             matchResList.Add(item.ResumeId);
         });
         
-        return Results.Json(new {success = true, matchResList}, statusCode: StatusCodes.Status200OK);
+        return Results.Json(new {success = true, data = matchResList}, statusCode: StatusCodes.Status200OK);
     })
     .Accepts<MatchReq>("application/json")
     .WithName("MatchByKeywords")
@@ -320,19 +356,30 @@ app.MapGet("/match/{jobId}", async (string jobId, HttpContext ctx) =>
         var jobJson = jobMetadata.Metadata.ToJson();
         
         var resumeMetaList = await new MongoDbHelper<ResumeMetadata>("ResumeMetadata").FindAllAsync();
+
+        var matchRes = new List<JobMatchResp>();
         
         resumeMetaList.ForEach(resume =>
         {
             var resumeJson = resume.Metadata.ToJson();
             
-            // TODO: 人岗匹配
+            var result = new RpcCall().Call("match", jobJson, resumeJson).Result;
+
+            var e = JsonSerializer.Deserialize<JsonElement>(result);
             
-            // TODO: 持久化匹配结果
+            matchRes.Add(new JobMatchResp
+            {
+                Id = resume.ResumeId,
+                TextSimilarity = e.GetProperty("text_similarity").GetDouble(),
+                StructureScore = e.GetProperty("structured_score").GetDouble(),
+                TotalScore = e.GetProperty("total_score").GetDouble()
+            });
         });
         
-        return Results.Json(new {success = true, message = "Match success."}, statusCode: StatusCodes.Status200OK);
+        return Results.Json(new {success = true, data = matchRes}, statusCode: StatusCodes.Status200OK);
     })
     .WithName("MatchByJobId")
     .WithOpenApi();
+
 
 app.Run();

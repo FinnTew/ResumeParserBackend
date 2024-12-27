@@ -7,8 +7,6 @@ mongo:
   host: localhost
   port: 27017
   database: resume
-kafka:
+rpc:
   host: localhost
-  port: 9092
-  group: resume
-    
+  port: 8899

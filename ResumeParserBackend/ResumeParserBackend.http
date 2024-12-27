@@ -16,3 +16,7 @@ Content-Type: application/json
 ###
 
 GET {{ResumeParserBackend_HostAddress}}/find/test
+
+###
+
+POST {{ResumeParserBackend_HostAddress}}/upload
