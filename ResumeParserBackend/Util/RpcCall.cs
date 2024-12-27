@@ -6,7 +6,7 @@ namespace ResumeParserBackend.Util;
 
 public class RpcCall
 {
-    private static readonly string _url = $"{ConfigManager.Instance.Get(c => c.Rpc.Host)}:{ConfigManager.Instance.Get(c => c.Rpc.Port)}";
+    private static readonly string _url = $"http://{ConfigManager.Instance.Get(c => c.Rpc.Host)}:{ConfigManager.Instance.Get(c => c.Rpc.Port)}";
 
     public async Task<string> Call(string methodName, params object[] args)
     {

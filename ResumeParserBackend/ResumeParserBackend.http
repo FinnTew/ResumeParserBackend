@@ -20,3 +20,29 @@ GET {{ResumeParserBackend_HostAddress}}/find/test
 ###
 
 POST {{ResumeParserBackend_HostAddress}}/upload
+
+### 
+
+GET {{ResumeParserBackend_HostAddress}}/education
+
+###
+
+POST {{ResumeParserBackend_HostAddress}}/findbyfilename
+Content-Type: application/json
+
+{
+  "filename": "郭暾"
+}
+
+### 
+
+POST {{ResumeParserBackend_HostAddress}}/parsejob
+Content-Type: application/json
+
+{
+  "content": "职位描述：\n1、理解业务需求，并根据需求设计快速完成功能实现；\n2、能够对核心模块，关键业务场景进行编码预演，确认审核；\n3、对产品进行后续维护提供持续的技术支持，性能调优；\n任职要求：\n1、计算机相关专业，本科及以上学历，1年以上JAVA web开发经验；\n2、熟练使用HTML5 + CSS3，JavaScript进行页面设计，熟悉Vue.js 或 React.js等流行前端框架及基于 Vue.js 和 React.js 的 UI 组件库\n3、精通Oracle、PostgreSQL或MySQL等关系型数据库；\n4、熟悉或从事过MES、WMS、ERP、BI、供应链管理、工业互联网等行业的优先；"
+}
+
+### 
+
+POST {{ResumeParserBackend_HostAddress}}/parse/eb24212a-4f99-4d3f-8ad1-e0cf8f65201a

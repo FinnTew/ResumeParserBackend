@@ -1,4 +1,6 @@
+using System.Runtime.InteropServices.JavaScript;
 using System.Text.Json;
+using DocumentFormat.OpenXml.Spreadsheet;
 using FluentScheduler;
 using MongoDB.Bson;
 using ResumeParserBackend.Util;
@@ -177,8 +179,16 @@ app.MapGet("filecontent/{resumeId}", async (string resumeId, HttpContext ctx) =>
     .WithOpenApi();
 
 // 按照文件名查找
-app.MapGet("/find/{fileName}", async (string fileName, HttpContext ctx) =>
+app.MapPost("/findbyfilename", async (HttpContext ctx) =>
     {
+        var reqData = await ctx.Request.ReadFromJsonAsync<FindByFilenameReq>();
+        if (reqData == null)
+        {
+            return Results.Json(new { success = false, message = "Invalid request data." }, statusCode: StatusCodes.Status400BadRequest);
+        }
+        
+        var fileName = reqData.Filename;
+        
         var mongo = new MongoDbHelper<Resume>("Resume");
 
         var resumeList = await mongo.FindManyAsync(f => f.OriginalFileName.Contains(fileName));
@@ -201,7 +211,7 @@ app.MapGet("/find/{fileName}", async (string fileName, HttpContext ctx) =>
     .WithOpenApi();
 
 // 按照日期查找
-app.MapPost("/find", async (HttpContext ctx) =>
+app.MapPost("/findbydata", async (HttpContext ctx) =>
     {
         var reqData = await ctx.Request.ReadFromJsonAsync<FindByDataReq>();
 
@@ -286,12 +296,14 @@ app.MapPost("/parse/{resumeId}", async (string resumeId, HttpContext ctx) =>
         var mongo = new MongoDbHelper<ResumeContent>("ResumeContent");
         var resume = await mongo.FindOneAsync(f => f.ResumeId == resumeId);
         
-        var resumeJsonString = await new RpcCall().Call("resume_parser", resume.FileContent);
+        var resumeJsonString = await new RpcCall().Call("resume_parse", resume.FileContent);
+        
+        Console.WriteLine(resumeJsonString);
 
         await new MongoDbHelper<ResumeMetadata>("ResumeMetadata").InsertOneAsync(new ResumeMetadata
         {
             ResumeId = resume.ResumeId,
-            Metadata = resumeJsonString.ToBsonDocument()
+            Metadata = BsonDocument.Create(resumeJsonString)
         });
         
         return Results.Json(new { success = true, data = resume }, statusCode: StatusCodes.Status200OK);
@@ -423,7 +435,56 @@ app.MapGet("/smatch", async (HttpContext ctx) =>
     .WithName("MatchByJobId")
     .WithOpenApi();
 
-// 获取
+// 获取教育背景分布
+app.MapGet("/education", async (HttpContext ctx) =>
+    {
+        var mongo = new MongoDbHelper<ResumeMetadata>("ResumeMetadata");
+        
+        var resumeMetaList = await mongo.FindAllAsync();
+
+        var eduMap = new Dictionary<string, int>();
+        
+        resumeMetaList.ForEach(item =>
+        {
+            var meta = item.Metadata;
+            var dic = meta.ToDictionary();
+            ((List<object>)dic["education"]).ForEach(i =>
+            {
+                var deg = ((Dictionary<string, object>)i)["degree"].ToString();
+                if (deg != null) eduMap.Add(deg, eduMap.TryGetValue(deg, out var value) ? value + 1 : 1);
+            });
+        });
+        
+        return Results.Json(new {success = true, data = eduMap}, statusCode: StatusCodes.Status200OK);
+    })
+    .WithName("Education")
+    .WithOpenApi();
+
+
+// 获取技术分布
+app.MapGet("/skill", async (HttpContext ctx) =>
+    {
+        
+        var mongo = new MongoDbHelper<ResumeMetadata>("ResumeMetadata");
+        
+        var resumeMetaList = await mongo.FindAllAsync();
+
+        var skMap = new Dictionary<string, int>();
+        
+        resumeMetaList.ForEach(item =>
+        {
+            var meta = item.Metadata;
+            var dic = meta.ToDictionary();
+            ((List<string>)dic["tech_tags"]).ForEach(i =>
+            {
+                skMap.Add(i, skMap.TryGetValue(i, out var value) ? value + 1 : 1);
+            });
+        });
+        
+        return Results.Json(new {success = true, data = skMap}, statusCode: StatusCodes.Status200OK);
+    })
+    .WithName("Skill")
+    .WithOpenApi();
 
 
 app.Run();
