@@ -258,6 +258,47 @@ app.MapGet("/download/{resumeId}", async (string resumeId, HttpContext ctx) =>
     .WithName("Download")
     .WithOpenApi();
 
+// 解析岗位jd
+app.MapPost("/parsejob", async (HttpContext ctx) =>
+    {
+        var reqData = await ctx.Request.ReadFromJsonAsync<ParseJobReq>();
+        
+        if (reqData == null)
+        {
+            return Results.Json(new { success = false, message = "Invalid request data." }, statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        var jobJsonString = await new RpcCall().Call("job_parse", reqData.Content);
+        
+        return Results.Json(new {success = true, data = jobJsonString}, statusCode: StatusCodes.Status200OK);
+    })
+    .WithName("ParseJob")
+    .WithOpenApi();
+
+// 解析简历
+app.MapPost("/parse/{resumeId}", async (string resumeId, HttpContext ctx) =>
+    {
+        if (resumeId == "")
+        {
+            return Results.Json(new { success = false, message = "Invalid request data." }, statusCode: StatusCodes.Status400BadRequest);
+        }
+        
+        var mongo = new MongoDbHelper<ResumeContent>("ResumeContent");
+        var resume = await mongo.FindOneAsync(f => f.ResumeId == resumeId);
+        
+        var resumeJsonString = await new RpcCall().Call("resume_parser", resume.FileContent);
+
+        await new MongoDbHelper<ResumeMetadata>("ResumeMetadata").InsertOneAsync(new ResumeMetadata
+        {
+            ResumeId = resume.ResumeId,
+            Metadata = resumeJsonString.ToBsonDocument()
+        });
+        
+        return Results.Json(new { success = true, data = resume }, statusCode: StatusCodes.Status200OK);
+    })
+    .WithName("Parse")
+    .WithOpenApi();
+
 // 结构化数据获取
 app.MapGet("/structure/{resumeId}", async (string resumeId, HttpContext ctx) =>
     {
@@ -345,15 +386,16 @@ app.MapPost("/match", async (HttpContext ctx) =>
     .WithOpenApi();
 
 // 语义匹配
-app.MapGet("/match/{jobId}", async (string jobId, HttpContext ctx) =>
+app.MapGet("/smatch", async (HttpContext ctx) =>
     {
-        var job = await new MongoDbHelper<Job>("Job").FindOneAsync(f => f.JobId == jobId);
-        if (job.ParseStatus != "success")
+        var reqData = await ctx.Request.ReadFromJsonAsync<ParseResumeReq>();
+
+        if (reqData == null)
         {
-            return Results.Json(new { success = false, message = "No parsed job." }, statusCode: StatusCodes.Status400BadRequest);
+            return Results.Json(new { success = false, message = "Invalid request data." }, statusCode: StatusCodes.Status400BadRequest);
         }
-        var jobMetadata = await new MongoDbHelper<JobMetadata>("JobMetadata").FindOneAsync(f => f.JobId == jobId);
-        var jobJson = jobMetadata.Metadata.ToJson();
+
+        var jobJson = reqData.Content;
         
         var resumeMetaList = await new MongoDbHelper<ResumeMetadata>("ResumeMetadata").FindAllAsync();
 
@@ -380,6 +422,8 @@ app.MapGet("/match/{jobId}", async (string jobId, HttpContext ctx) =>
     })
     .WithName("MatchByJobId")
     .WithOpenApi();
+
+// 获取
 
 
 app.Run();
