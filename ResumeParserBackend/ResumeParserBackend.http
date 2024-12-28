@@ -1,21 +1,14 @@
 @ResumeParserBackend_HostAddress = http://localhost:5226
 
-GET {{ResumeParserBackend_HostAddress}}/weatherforecast/
-Accept: application/json
-
 ###
 
 POST {{ResumeParserBackend_HostAddress}}/match/
 Content-Type: application/json
 
 {
-    "must": ["a", "b"],
-    "should": ["c"]
+    "must": ["golang", "bitcask"],
+    "should": ["python"]
 }
-
-###
-
-GET {{ResumeParserBackend_HostAddress}}/find/test
 
 ###
 
@@ -24,6 +17,10 @@ POST {{ResumeParserBackend_HostAddress}}/upload
 ### 
 
 GET {{ResumeParserBackend_HostAddress}}/education
+
+###
+
+GET {{ResumeParserBackend_HostAddress}}/skill
 
 ###
 
@@ -45,4 +42,95 @@ Content-Type: application/json
 
 ### 
 
+POST {{ResumeParserBackend_HostAddress}}/parsejob
+Content-Type: application/json
+
+{
+  "content": "注:岗位长期外派,需要长期且稳定人员,介意者勿投递。\n  岗位职责：\n  1、参与企业级产品后台软件开发、系统设计、架构设计、项目管理、团队建设；\n  2、根据开发任务要求，编写相关技术文档；\n  3、负责公司产品项目的开发及线上产品迭代；\n4、项目组安排的其他工作。\n岗位要求：\n1、统招本科及以上学历，计算机相关专业，5年以上工作经验，有车联网项目经验优先。\n2、熟悉Java开发规范，熟练使用Java技术栈如SpringBoot 、Spring Cloud、Dubbo、Mybatis、MQ、Kafka等；\n3、熟练使用Oracle、Mysql关系型数据库，熟练使用Redis缓存组件，熟悉Linux操作系统，熟悉基本的服务操作；\n4、熟悉postgresqI以及nosql的使用，熟悉数据库性能调优;有大型分布式、高并发、高负载、高可用性系统设计开发经验;\n5、有丰富的项目开发、团队管理经验，能熟练使用禅道、云效等项目管理平台；\n6、性格开朗、善于沟通，有一定的抗压能力和服从性。"}
+
+###
+
+POST {{ResumeParserBackend_HostAddress}}/parsejob
+Content-Type: application/json
+
+{
+  "content": "岗位职责：1.参与系统需求的调研和需求分析，撰写相关技术文档；2.搭建系统开发环境，完成系统框架和需求代码的实现；3.协助资深开发进行项目概要设计、详细设计、开发计划等的编制并实施；4.完成单元测试，遵循公司代码规范、保证代码质量5.负责解决开发过程中的技术问题，及时解决客户问题。技能描述：1、计算机相关专业统招专科及以上学历，具备3年以上java开发经验；2、Java基础知识扎实，熟练掌握Spring、SpringBoot、SpringCloudAlibaba、Mybatis等主流开发框架。3、熟练使用Sql语言，了解Sql语句调优，熟悉Mysql数据库，对数据库事务、锁、索引有深入理解。4、熟练使用NoSql数据库如Redis，具备分布式缓存设计经验。5，具备微服务理论知识或者使用经验者尤佳。6、具有良好的主动沟通、表达能力及基本的文档书写能力；7、良好的自主学习意识，积极主动，能够承受工作压力，责任心强。"
+}
+###
 POST {{ResumeParserBackend_HostAddress}}/parse/eb24212a-4f99-4d3f-8ad1-e0cf8f65201a
+
+
+###
+
+POST {{ResumeParserBackend_HostAddress}}/parse/0f52ec35-b1a8-404a-873c-3b8fdc5035e1
+
+###
+
+POST {{ResumeParserBackend_HostAddress}}/parse/438b5c76-8a52-436e-9eb3-b339a9e60090
+
+###
+
+POST {{ResumeParserBackend_HostAddress}}/parse/5c86d3f2-5de7-4f34-a4eb-0ee64512e53f
+
+###
+
+POST {{ResumeParserBackend_HostAddress}}/parse/4163ef42-d872-4ea3-8858-038d3a52a7e4
+
+###
+
+POST {{ResumeParserBackend_HostAddress}}/parse/e39f910a-5765-440f-a425-66d64720c2ca
+
+###
+
+POST {{ResumeParserBackend_HostAddress}}/parse/1ca63b42-9d5a-415d-8550-50740e748111
+
+###
+
+GET {{ResumeParserBackend_HostAddress}}/filecontent/eb24212a-4f99-4d3f-8ad1-e0cf8f65201a
+
+### 
+
+POST {{ResumeParserBackend_HostAddress}}/smatch
+Content-Type: application/json
+
+{
+  "content": "{\n  \"job_title\": \"软件开发工程师\",\n  \"job_description\": \"理解业务需求，并根据需求设计快速完成功能实现\",\n  \"responsibilities\": [\n    \"理解业务需求，并根据需求设计快速完成功能实现\",\n    \"能够对核心模块，关键业务场景进行编码预演，确认审核\",\n    \"对产品进行后续维护提供持续的技术支持，性能调优\"\n  ],\n  \"requirements\": {\n    \"education\": \"计算机相关专业，本科及以上学历\",\n    \"skills\": [\n      {\n        \"skill_name\": \"Java\",\n        \"proficiency\": \"熟练\"\n      },\n      {\n        \"skill_name\": \"HTML5\",\n        \"proficiency\": \"熟练\"\n      },\n      {\n        \"skill_name\": \"CSS3\",\n        \"proficiency\": \"熟练\"\n      },\n      {\n        \"skill_name\": \"JavaScript\",\n        \"proficiency\": \"熟练\"\n      },\n      {\n        \"skill_name\": \"Vue.js\",\n        \"proficiency\": \"熟悉\"\n      },\n      {\n        \"skill_name\": \"React.js\",\n        \"proficiency\": \"熟悉\"\n      },\n      {\n        \"skill_name\": \"Oracle\",\n        \"proficiency\": \"精通\"\n      },\n      {\n        \"skill_name\": \"PostgreSQL\",\n        \"proficiency\": \"精通\"\n      },\n      {\n        \"skill_name\": \"MySQL\",\n        \"proficiency\": \"精通\"\n      }\n    ],\n    \"plus\": [\n      \"熟悉或从事过MES、WMS、ERP、BI、供应链管理、工业互联网等行业\"\n    ]\n  }\n}"
+}
+
+###
+
+POST {{ResumeParserBackend_HostAddress}}/smatch
+Content-Type: application/json
+
+{
+  "content": "{\n  \"job_title\": \"软件开发工程师\",\n  \"job_description\": \"参与企业级产品后台软件开发、系统设计、架构设计、项目管理、团队建设\",\n  \"responsibilities\": [\n    \"参与企业级产品后台软件开发、系统设计、架构设计、项目管理、团队建设\",\n    \"根据开发任务要求，编写相关技术文档\",\n    \"负责公司产品项目的开发及线上产品迭代\",\n    \"项目组安排的其他工作\"\n  ],\n  \"requirements\": {\n    \"education\": \"统招本科及以上学历，计算机相关专业\",\n    \"skills\": [\n      {\n        \"skill_name\": \"Java\",\n        \"proficiency\": \"熟练使用\"\n      },\n      {\n        \"skill_name\": \"SpringBoot\",\n        \"proficiency\": \"熟练使用\"\n      },\n      {\n        \"skill_name\": \"Spring Cloud\",\n        \"proficiency\": \"熟练使用\"\n      },\n      {\n        \"skill_name\": \"Dubbo\",\n        \"proficiency\": \"熟练使用\"\n      },\n      {\n        \"skill_name\": \"Mybatis\",\n        \"proficiency\": \"熟练使用\"\n      },\n      {\n        \"skill_name\": \"MQ\",\n        \"proficiency\": \"熟练使用\"\n      },\n      {\n        \"skill_name\": \"Kafka\",\n        \"proficiency\": \"熟练使用\"\n      },\n      {\n        \"skill_name\": \"Oracle\",\n        \"proficiency\": \"熟练使用\"\n      },\n      {\n        \"skill_name\": \"Mysql\",\n        \"proficiency\": \"熟练使用\"\n      },\n      {\n        \"skill_name\": \"Redis\",\n        \"proficiency\": \"熟练使用\"\n      },\n      {\n        \"skill_name\": \"Linux\",\n        \"proficiency\": \"熟悉\"\n      },\n      {\n        \"skill_name\": \"PostgreSQL\",\n        \"proficiency\": \"熟悉\"\n      },\n      {\n        \"skill_name\": \"NoSQL\",\n        \"proficiency\": \"熟悉\"\n      },\n      {\n        \"skill_name\": \"禅道\",\n        \"proficiency\": \"熟练使用\"\n      },\n      {\n        \"skill_name\": \"云效\",\n        \"proficiency\": \"熟练使用\"\n      }\n    ],\n    \"plus\": [\n      \"有车联网项目经验优先\",\n      \"有大型分布式、高并发、高负载、高可用性系统设计开发经验\"\n    ]\n  }\n}\n"
+}
+
+###
+
+POST {{ResumeParserBackend_HostAddress}}/smatch
+Content-Type: application/json
+
+{
+  "content": "{\n  \"job_title\": \"系统开发工程师\",\n  \"job_description\": \"参与系统需求的调研和需求分析，撰写相关技术文档\",\n  \"responsibilities\": [\n    \"参与系统需求的调研和需求分析，撰写相关技术文档\",\n    \"搭建系统开发环境，完成系统框架和需求代码的实现\",\n    \"协助资深开发进行项目概要设计、详细设计、开发计划等的编制并实施\",\n    \"完成单元测试，遵循公司代码规范、保证代码质量\",\n    \"负责解决开发过程中的技术问题，及时解决客户问题\"\n  ],\n  \"requirements\": {\n    \"education\": \"计算机相关专业统招专科及以上学历\",\n    \"skills\": [\n      {\n        \"skill_name\": \"Java\",\n        \"proficiency\": \"具备3年以上开发经验\"\n      },\n      {\n        \"skill_name\": \"Spring\",\n        \"proficiency\": \"熟练掌握\"\n      },\n      {\n        \"skill_name\": \"SpringBoot\",\n        \"proficiency\": \"熟练掌握\"\n      },\n      {\n        \"skill_name\": \"SpringCloudAlibaba\",\n        \"proficiency\": \"熟练掌握\"\n      },\n      {\n        \"skill_name\": \"Mybatis\",\n        \"proficiency\": \"熟练掌握\"\n      },\n      {\n        \"skill_name\": \"SQL\",\n        \"proficiency\": \"熟练使用，了解语句调优\"\n      },\n      {\n        \"skill_name\": \"Mysql\",\n        \"proficiency\": \"熟悉\"\n      },\n      {\n        \"skill_name\": \"Redis\",\n        \"proficiency\": \"熟练使用\"\n      }\n    ],\n    \"plus\": [\n      \"具备分布式缓存设计经验\",\n      \"具备微服务理论知识或者使用经验者尤佳\"\n    ]\n  }\n}\n"
+}
+
+###
+GET {{ResumeParserBackend_HostAddress}}/structure/eb24212a-4f99-4d3f-8ad1-e0cf8f65201a
+
+###
+POST {{ResumeParserBackend_HostAddress}}/findbyfilename
+Content-Type: application/json
+
+{
+  "filename": ""
+}
+###
+POST {{ResumeParserBackend_HostAddress}}/findbydate
+Content-Type: application/json
+
+{
+  "start": 1735315200,
+  "end": 1735357477
+}
+###

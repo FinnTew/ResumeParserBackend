@@ -1,14 +1,14 @@
-using System.Runtime.InteropServices.JavaScript;
 using System.Text.Json;
-using DocumentFormat.OpenXml.Spreadsheet;
-using FluentScheduler;
 using MongoDB.Bson;
+using MongoDB.Bson.Serialization;
+using MongoDB.Driver;
 using ResumeParserBackend.Util;
 using ResumeParserBackend;
 using ResumeParserBackend.Collection;
 using ResumeParserBackend.Document;
 using ResumeParserBackend.Entity;
 using ResumeParserBackend.Helper;
+using C = ResumeParserBackend.Util.Convert;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -205,13 +205,13 @@ app.MapPost("/findbyfilename", async (HttpContext ctx) =>
             });
         });
 
-        return Results.Json(new { success = true, resumeList = resumeListRes }, statusCode: StatusCodes.Status200OK);
+        return Results.Json(new { success = true, data = resumeListRes }, statusCode: StatusCodes.Status200OK);
     })
     .WithName("FindByFileName")
     .WithOpenApi();
 
 // 按照日期查找
-app.MapPost("/findbydata", async (HttpContext ctx) =>
+app.MapPost("/findbydate", async (HttpContext ctx) =>
     {
         var reqData = await ctx.Request.ReadFromJsonAsync<FindByDataReq>();
 
@@ -220,14 +220,14 @@ app.MapPost("/findbydata", async (HttpContext ctx) =>
             return Results.Json(new { success = false, message = "Invalid request data." }, statusCode: StatusCodes.Status400BadRequest);
         }
 
-        if (reqData.StartDate > reqData.EndDate)
+        if (reqData.Start > reqData.End)
         {
             return Results.Json(new { success = false, message = "Start date cannot be later than end date." }, statusCode: StatusCodes.Status400BadRequest);
         }
         
         var mongo = new MongoDbHelper<Resume>("Resume");
         
-        var resumeList = await mongo.FindManyAsync(f => f.UploadTime >= reqData.StartDate && f.UploadTime <= reqData.EndDate);
+        var resumeList = await mongo.FindManyAsync(f => f.UploadTime >= reqData.Start && f.UploadTime <= reqData.End);
         
         var resumeListRes = new List<ResumeEntity>();
         resumeList.ForEach(item =>
@@ -241,7 +241,7 @@ app.MapPost("/findbydata", async (HttpContext ctx) =>
             });
         });
         
-        return Results.Json(new { success = true, resumeList = resumeListRes }, statusCode: StatusCodes.Status200OK);
+        return Results.Json(new { success = true, data = resumeListRes }, statusCode: StatusCodes.Status200OK);
     })
     .WithName("FindByDate")
     .WithOpenApi();
@@ -293,6 +293,13 @@ app.MapPost("/parse/{resumeId}", async (string resumeId, HttpContext ctx) =>
             return Results.Json(new { success = false, message = "Invalid request data." }, statusCode: StatusCodes.Status400BadRequest);
         }
         
+        var r = await new MongoDbHelper<ResumeMetadata>("ResumeMetadata").FindOneAsync(f => f.ResumeId == resumeId);
+
+        // if (r.Id != "")
+        // {
+        //     return Results.Json(new { success = false, message = "Already parsed the resume." }, statusCode: StatusCodes.Status200OK);
+        // }
+        
         var mongo = new MongoDbHelper<ResumeContent>("ResumeContent");
         var resume = await mongo.FindOneAsync(f => f.ResumeId == resumeId);
         
@@ -303,10 +310,13 @@ app.MapPost("/parse/{resumeId}", async (string resumeId, HttpContext ctx) =>
         await new MongoDbHelper<ResumeMetadata>("ResumeMetadata").InsertOneAsync(new ResumeMetadata
         {
             ResumeId = resume.ResumeId,
-            Metadata = BsonDocument.Create(resumeJsonString)
+            Metadata = BsonSerializer.Deserialize<BsonDocument>(resumeJsonString)
         });
+
+        await new MongoDbHelper<Resume>("Resume").UpdateOneAsync(f => f.ResumeId == resume.ResumeId,
+            Builders<Resume>.Update.Set(r => r.ParseStatus, "success"));
         
-        return Results.Json(new { success = true, data = resume }, statusCode: StatusCodes.Status200OK);
+        return Results.Json(new { success = true, data = resumeJsonString }, statusCode: StatusCodes.Status200OK);
     })
     .WithName("Parse")
     .WithOpenApi();
@@ -325,10 +335,10 @@ app.MapGet("/structure/{resumeId}", async (string resumeId, HttpContext ctx) =>
         var resume = await mongo.FindOneAsync(f => f.ResumeId == resumeId);
 
         var jsonString = resume.Metadata.ToJson();
+
+        var xmlString = C.JsonToXml(jsonString);
         
-        // TODO: Convert to other type
-        
-        return Results.Json(new { success = true, data = new {} }, statusCode: StatusCodes.Status200OK);
+        return Results.Json(new { success = true, data = new {json = jsonString, xml = xmlString} }, statusCode: StatusCodes.Status200OK);
     })
     .WithName("Structure")
     .WithOpenApi();
@@ -385,10 +395,14 @@ app.MapPost("/match", async (HttpContext ctx) =>
             }
         );
 
-        var matchResList = new List<string>();
+        var matchResList = new List<MatchResp>();
         matchRes.Documents.ToList().ForEach(item =>
         {
-            matchResList.Add(item.ResumeId);
+            matchResList.Add(new MatchResp
+            {
+                ResumeId = item.ResumeId,
+                Content = item.Content
+            });
         });
         
         return Results.Json(new {success = true, data = matchResList}, statusCode: StatusCodes.Status200OK);
@@ -398,7 +412,7 @@ app.MapPost("/match", async (HttpContext ctx) =>
     .WithOpenApi();
 
 // 语义匹配
-app.MapGet("/smatch", async (HttpContext ctx) =>
+app.MapPost("/smatch", async (HttpContext ctx) =>
     {
         var reqData = await ctx.Request.ReadFromJsonAsync<ParseResumeReq>();
 
@@ -418,6 +432,8 @@ app.MapGet("/smatch", async (HttpContext ctx) =>
             var resumeJson = resume.Metadata.ToJson();
             
             var result = new RpcCall().Call("match", jobJson, resumeJson).Result;
+            
+            Console.WriteLine(result);
 
             var e = JsonSerializer.Deserialize<JsonElement>(result);
             
@@ -425,10 +441,12 @@ app.MapGet("/smatch", async (HttpContext ctx) =>
             {
                 Id = resume.ResumeId,
                 TextSimilarity = e.GetProperty("text_similarity").GetDouble(),
-                StructureScore = e.GetProperty("structured_score").GetDouble(),
+                SkillScore = e.GetProperty("structured_score").GetDouble(),
                 TotalScore = e.GetProperty("total_score").GetDouble()
             });
         });
+        
+        matchRes.Sort((x, y) => y.TotalScore.CompareTo(x.TotalScore));
         
         return Results.Json(new {success = true, data = matchRes}, statusCode: StatusCodes.Status200OK);
     })
@@ -447,12 +465,37 @@ app.MapGet("/education", async (HttpContext ctx) =>
         resumeMetaList.ForEach(item =>
         {
             var meta = item.Metadata;
-            var dic = meta.ToDictionary();
-            ((List<object>)dic["education"]).ForEach(i =>
+            var enumerator = meta.Elements.GetEnumerator();
+            for (var i = enumerator; i.MoveNext();)
             {
-                var deg = ((Dictionary<string, object>)i)["degree"].ToString();
-                if (deg != null) eduMap.Add(deg, eduMap.TryGetValue(deg, out var value) ? value + 1 : 1);
-            });
+                var curr = i.Current;
+                if (curr.Name == "education")
+                {
+                    var eduEnumerator = curr.Value.AsBsonArray.GetEnumerator();
+                    for (var j = eduEnumerator; j.MoveNext();)
+                    {
+                        var cur = j.Current;
+                        var itemE = cur.AsBsonDocument.Elements.GetEnumerator();
+                        for (var k = itemE; k.MoveNext();)
+                        {
+                            var cur2 = k.Current;
+                            if (cur2.Name != "degree") continue;
+                            var deg = cur2.Value.AsString;
+                            if (deg != null)
+                            {
+                                if (!eduMap.ContainsKey(deg))
+                                {
+                                    eduMap.Add(deg, 1);
+                                }
+                                else
+                                {
+                                    eduMap[deg]++;
+                                }
+                            };
+                        }
+                    }
+                }
+            }
         });
         
         return Results.Json(new {success = true, data = eduMap}, statusCode: StatusCodes.Status200OK);
@@ -474,17 +517,36 @@ app.MapGet("/skill", async (HttpContext ctx) =>
         resumeMetaList.ForEach(item =>
         {
             var meta = item.Metadata;
-            var dic = meta.ToDictionary();
-            ((List<string>)dic["tech_tags"]).ForEach(i =>
+            var enumerator = meta.Elements.GetEnumerator();
+            for (var i = enumerator; i.MoveNext();)
             {
-                skMap.Add(i, skMap.TryGetValue(i, out var value) ? value + 1 : 1);
-            });
+                var curr = i.Current;
+                if (curr.Name == "tech_tags")
+                {
+                    var techTagsEnumerator = curr.Value.AsBsonArray.GetEnumerator();
+                    for (var j = techTagsEnumerator; j.MoveNext();)
+                    {
+                        var cur = j.Current;
+                        var tag = cur.AsString;
+                        if (tag != null)
+                        {
+                            if (!skMap.ContainsKey(tag))
+                            {
+                                skMap.Add(tag, 1);
+                            }
+                            else
+                            {
+                                skMap[tag] += 1;
+                            }
+                        }
+                    }
+                }
+            }
         });
         
         return Results.Json(new {success = true, data = skMap}, statusCode: StatusCodes.Status200OK);
     })
     .WithName("Skill")
     .WithOpenApi();
-
 
 app.Run();

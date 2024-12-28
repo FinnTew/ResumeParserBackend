@@ -1,3 +1,7 @@
+using System.Xml;
+using Newtonsoft.Json.Linq;
+using YamlDotNet.Serialization.NamingConventions;
+
 namespace ResumeParserBackend.Util;
 
 using System.Collections.Generic;
@@ -9,64 +13,60 @@ using YamlDotNet.Serialization;
 
 public class Convert
 {
-    public static string JsonToXml(string jsonString)
+    public static string JsonToXml(string jsonString, string rootName = "Root")
     {
-        var xmlDocument = JsonConvert.DeserializeXmlNode(jsonString, "root");
-        return xmlDocument.OuterXml;
-    }
-
-    public static string JsonToCsv(string jsonString)
-    {
-        var jsonArray = JsonConvert.DeserializeObject<List<Dictionary<string, object>>>(jsonString);
-        var dataTable = new DataTable();
-        
-        jsonArray.ForEach(dict =>
+        if (string.IsNullOrWhiteSpace(jsonString))
         {
-            for (var e = dict.Keys.GetEnumerator(); e.MoveNext(); e.MoveNext())
-            {
-                if (!dataTable.Columns.Contains(e.Current))
-                {
-                    dataTable.Columns.Add(e.Current);
-                }
-            }
-        });
-
-        foreach (var dict in jsonArray)
-        {
-            var row = dataTable.NewRow();
-            foreach (var key in dict.Keys)
-            {
-                row[key] = dict[key];
-            }
-            dataTable.Rows.Add(row);
+            throw new ArgumentException("JSON 字符串不能为空或仅包含空白字符。");
         }
 
-        var csvBuilder = new StringBuilder();
-        foreach (DataColumn column in dataTable.Columns)
+        try
         {
-            csvBuilder.Append(column.ColumnName + ",");
+            // 使用 Newtonsoft.Json 的 JsonConvert 来解析 JSON 并转换为 XML
+            XmlDocument xmlDocument = JsonConvert.DeserializeXmlNode(jsonString, rootName);
+            
+            // 返回 XML 字符串
+            return xmlDocument.OuterXml;
         }
-        csvBuilder.Length--; // Remove last comma
-        csvBuilder.AppendLine();
-
-        foreach (DataRow row in dataTable.Rows)
+        catch (JsonException jsonEx)
         {
-            foreach (var item in row.ItemArray)
-            {
-                csvBuilder.Append(item + ",");
-            }
-            csvBuilder.Length--; // Remove last comma
-            csvBuilder.AppendLine();
+            throw new InvalidOperationException("JSON 格式无效，无法转换为 XML。", jsonEx);
         }
-
-        return csvBuilder.ToString();
+        catch (Exception ex)
+        {
+            throw new Exception("转换过程中发生未知错误。", ex);
+        }
     }
 
     public static string JsonToYaml(string jsonString)
     {
-        var deserializer = new Deserializer();
-        var yamlObject = deserializer.Deserialize(new StringReader(jsonString));
-        var serializer = new Serializer();
-        return serializer.Serialize(yamlObject);
+        // 校验输入是否为空
+        if (string.IsNullOrWhiteSpace(jsonString))
+        {
+            throw new ArgumentException("JSON 字符串不能为空或仅包含空白字符。");
+        }
+
+        try
+        {
+            // 将 JSON 反序列化为动态对象
+            var jsonObject = JsonConvert.DeserializeObject<object>(jsonString);
+
+            if (jsonObject == null)
+            {
+                throw new InvalidOperationException("JSON 数据无效或格式不正确，无法解析。");
+            }
+
+            // 使用 YamlDotNet 序列化器将对象转换为 YAML
+            var serializer = new SerializerBuilder().Build();
+            return serializer.Serialize(jsonObject);
+        }
+        catch (JsonException ex)
+        {
+            throw new InvalidOperationException("JSON 格式无效，无法转换为 YAML。", ex);
+        }
+        catch (Exception ex)
+        {
+            throw new Exception("转换过程中发生未知错误。", ex);
+        }
     }
 }

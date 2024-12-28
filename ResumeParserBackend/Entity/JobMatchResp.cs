@@ -6,7 +6,7 @@ public class JobMatchResp
     
     public double TextSimilarity { get; set; }
     
-    public double StructureScore { get; set; }
+    public double SkillScore { get; set; }
     
     public double TotalScore { get; set; }
 }
