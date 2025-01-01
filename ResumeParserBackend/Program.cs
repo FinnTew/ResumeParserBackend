@@ -61,7 +61,8 @@ app.MapPost("/upload", async (HttpContext ctx) =>
         
             var fileExtension = Path.GetExtension(formFile.FileName);
             var timestamp = DateTime.Now.ToString("yyyyMMddHHmmssfff");
-            var newFileName = $"{Path.GetFileNameWithoutExtension(formFile.FileName)}-{timestamp}{fileExtension}";
+            var fileId = Guid.NewGuid().ToString().Replace("-", "");
+            var newFileName = $"{fileId}-{timestamp}{fileExtension}";
 
             var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "Uploads");
 
