@@ -294,15 +294,13 @@ app.MapPost("/parse/{resumeId}", async (string resumeId, HttpContext ctx) =>
             return Results.Json(new { success = false, message = "Invalid request data." }, statusCode: StatusCodes.Status400BadRequest);
         }
         
-        var r = await new MongoDbHelper<ResumeMetadata>("ResumeMetadata").FindOneAsync(f => f.ResumeId == resumeId);
-
-        // if (r.Id != "")
-        // {
-        //     return Results.Json(new { success = false, message = "Already parsed the resume." }, statusCode: StatusCodes.Status200OK);
-        // }
-        
         var mongo = new MongoDbHelper<ResumeContent>("ResumeContent");
         var resume = await mongo.FindOneAsync(f => f.ResumeId == resumeId);
+
+        if (resume.FileContent == "")
+        {
+            return Results.Json(new {success = false, message = "No resume content." }, statusCode: StatusCodes.Status400BadRequest);
+        }
         
         var resumeJsonString = await new RpcCall().Call("resume_parse", resume.FileContent);
         
