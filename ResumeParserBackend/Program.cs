@@ -493,7 +493,7 @@ app.MapGet("/education", async (HttpContext ctx) =>
                                 {
                                     eduMap[deg]++;
                                 }
-                            };
+                            }
                         }
                     }
                 }
