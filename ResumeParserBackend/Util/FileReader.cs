@@ -1,3 +1,5 @@
+using System.Diagnostics;
+
 namespace ResumeParserBackend.Util;
 
 using System;
@@ -65,19 +67,30 @@ public class FileReader
 
     private static string ReadDocFile(string filePath)
     {
-        var text = new StringBuilder();
-
-        using (var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read))
+        var startInfo = new ProcessStartInfo
         {
-            var doc = new HWPFDocument(fs);
-            var extractor = new WordExtractor(doc);
+            FileName = "catdoc",
+            Arguments = filePath,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true
+        };
 
-            foreach (var t in extractor.ParagraphText)
-            {
-                text.Append(t);
-            }
+        using var process = new Process();
+        process.StartInfo = startInfo;
+        process.Start();
+
+        var output = process.StandardOutput.ReadToEnd();
+        var error = process.StandardError.ReadToEnd();
+
+        process.WaitForExit();
+
+        if (process.ExitCode != 0)
+        {
+            throw new Exception($"catdoc error: {error}");
         }
 
-        return text.ToString();
+        return output;
     }
 }
