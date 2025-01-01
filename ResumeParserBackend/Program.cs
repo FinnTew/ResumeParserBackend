@@ -159,7 +159,7 @@ app.MapGet("/list", async (HttpContext ctx) =>
             });
         });
         
-        return Results.Json(new {success = true, resumeList = resumeListRes}, statusCode: StatusCodes.Status200OK);
+        return Results.Json(new {success = true, data = resumeListRes}, statusCode: StatusCodes.Status200OK);
     })
     .WithName("List")
     .WithOpenApi();
@@ -337,8 +337,10 @@ app.MapGet("/structure/{resumeId}", async (string resumeId, HttpContext ctx) =>
         var jsonString = resume.Metadata.ToJson();
 
         var xmlString = C.JsonToXml(jsonString);
+
+        var tomlString = C.JsonToToml(jsonString);
         
-        return Results.Json(new { success = true, data = new {json = jsonString, xml = xmlString} }, statusCode: StatusCodes.Status200OK);
+        return Results.Json(new { success = true, data = new {json = jsonString, xml = xmlString, toml = tomlString} }, statusCode: StatusCodes.Status200OK);
     })
     .WithName("Structure")
     .WithOpenApi();
